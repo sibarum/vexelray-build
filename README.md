@@ -51,7 +51,7 @@ In a repo's parent pom, or an application's pom:
 <plugin>
     <groupId>dev.vexelray.build</groupId>
     <artifactId>vexelray-build-maven-plugin</artifactId>
-    <version>0.1.0-SNAPSHOT</version>
+    <version>0.1.1-SNAPSHOT</version>
     <executions>
         <execution>
             <goals>
@@ -61,6 +61,9 @@ In a repo's parent pom, or an application's pom:
     </executions>
 </plugin>
 ```
+
+The plugin is versioned with the rest of the stack: `vexelray-dist/release.py` builds it first and moves it, and every
+pom that names it, to each release and next snapshot along with the other repositories.
 
 An application on `vexelray-framework` needs nothing more. The framework's code generator reads the bill while the
 application compiles and bakes it into the generated wiring, so there is nothing to read at run time, and nothing a
