@@ -75,7 +75,12 @@ public final class IdentifyMojo extends AbstractMojo {
                 }
             }
             Bill bill = new Bill(self, stack);
-            write(out.resolve(Bill.RESOURCE), bill.text());
+            Path billFile = out.resolve(Bill.RESOURCE);
+            String before = Files.isRegularFile(billFile) ? Files.readString(billFile, StandardCharsets.UTF_8) : null;
+            write(billFile, bill.text());
+            if (before != null && !before.equals(bill.text())) {
+                forgetIncrementalState();
+            }
 
             project.getProperties().setProperty("vexelray.build.source", self.source());
             project.getProperties().setProperty("vexelray.build.commit", self.commit());
@@ -84,6 +89,24 @@ public final class IdentifyMojo extends AbstractMojo {
         } catch (IOException e) {
             throw new MojoExecutionException("could not work out the build identity of " + project.getArtifactId()
                     + ": " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * The bill changed, so whatever was generated from the old one is stale, even if no source file changed (a new
+     * commit that only touched a README, or a rebuilt stack module). The framework's code generator reads the bill
+     * while compiling, and the compiler skips a module whose sources are unchanged. Forgetting its incremental state
+     * makes it compile everything again, which it does once per new identity.
+     */
+    private void forgetIncrementalState() throws IOException {
+        Path status = Path.of(project.getBuild().getDirectory(), "maven-status", "maven-compiler-plugin");
+        if (Files.isDirectory(status)) {
+            try (java.util.stream.Stream<Path> walk = Files.walk(status)) {
+                for (Path p : walk.sorted(java.util.Comparator.reverseOrder()).toList()) {
+                    Files.deleteIfExists(p);
+                }
+            }
+            getLog().info("build identity changed: the next compile starts from scratch, so it is baked in afresh");
         }
     }
 
