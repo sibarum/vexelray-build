@@ -4,6 +4,8 @@ A Maven plugin that stamps every module of the VexelRay stack with what its bina
 an application, it also gathers the stamps of everything on the application's class path, so a running application
 knows the exact source of every part of itself.
 
+Part of the [VexelRay](https://sibarum.github.io/) stack. Building an application on it? Start at the [developer guide](https://sibarum.github.io/vexelray-framework/developers/).
+
 **Build it first**, before every repo it stamps:
 
 ```
