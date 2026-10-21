@@ -70,6 +70,24 @@ application compiles and bakes it into the generated wiring, so there is nothing
 native image has to be told about. The automation socket then advertises the build in the discovery file and in
 `hello` (`vexelray-gui/docs/plans/discovery.md`), and the Inspector keeps its history by it.
 
+## Build output on Linux
+
+Every repository's root pom has a `linux-build-output` profile, activated on Linux, that moves `project.build.directory`
+to `target-linux/`. The suite is developed from one checkout that a Windows host and a Linux VM both build (a VMware
+shared folder), and this lets each keep its output beside the other's rather than overwrite it, so moving between
+them needs no clean rebuild. Windows and macOS still build into `target/`.
+
+What follows from it:
+
+- anything that reads build output asks Maven where it is (`${project.build.directory}`), or, from code, names the
+  directory its own classes were loaded from; nothing names `target/` in a path;
+- applications run by `exec:exec` are passed `-Dbuild.dir=${project.build.directory}`, which is where atchung puts
+  their logs: `target-linux/logs/` on Linux;
+- `.gitignore` lists `target-linux/` beside `target/`, which keeps the source digest above clean;
+- imagelib's Linux `native/build.sh` gives cargo `native/imagelib/target-linux` for the same reason.
+
+New repositories copy the profile from any root pom; `vexelray-framework`'s template has it.
+
 ## Notes
 
 - **Java 21, not 25.** `maven-plugin-plugin` 3.15 reads the compiled classes to build the plugin descriptor, and its
