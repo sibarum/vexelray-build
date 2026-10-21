@@ -27,8 +27,9 @@ import java.util.stream.Stream;
  * fails the build on a line of {@code src/main/java} that bears one of {@link PlatformMarks#MARKS} (comments do not
  * count), and names the file and line.
  *
- * <p>In a {@code -windows} module it also says when there is no {@code -macos} module beside it yet: the list of
- * what a macOS port has still to write, kept by the build rather than by memory.
+ * <p>In a {@code -windows} module it also says when there is no {@code -macos} module beside it: the list a macOS
+ * port goes through, kept by the build rather than by memory. Not every one needs writing — a component with nothing
+ * to do on macOS needs no module there — but every one needs deciding.
  *
  * <p>A module that is one OS's by nature under a name that does not say so (a bridge to DXGI, say) declares it with
  * {@code <os>windows</os>} in this goal's configuration, rather than renaming an artifact others depend on.
@@ -112,7 +113,7 @@ public final class IsolateMojo extends AbstractMojo {
         String macos = artifact.substring(0, artifact.length() - "-windows".length()) + "-macos";
         Path parent = base.getParent();
         if (parent != null && !Files.isDirectory(parent.resolve(macos))) {
-            getLog().info("macOS: " + macos + " is still to write (beside " + artifact + ")");
+            getLog().info("macOS: no " + macos + " beside " + artifact + " (write one if macOS needs anything here)");
         }
     }
 }
