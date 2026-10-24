@@ -19,8 +19,20 @@ import java.util.Properties;
  * @param version  the Maven version
  * @param commit   the full commit hash of {@code HEAD}; {@code unknown} outside a git checkout or without git
  * @param digest   the digest of the uncommitted changes, or empty when the tree was clean
+ * @param issues   where the module's problems are reported: its pom's {@code <issueManagement><url>}, inherited
+ *                 like the rest of the model, or empty when it names none. Not part of the identity: it says who
+ *                 looks after the module, not what it was built from
  */
-public record Stamp(String group, String artifact, String version, String commit, String digest) {
+public record Stamp(String group, String artifact, String version, String commit, String digest, String issues) {
+
+    public Stamp {
+        issues = issues == null ? "" : issues.trim();
+    }
+
+    /** A stamp that names no issue tracker. */
+    public Stamp(String group, String artifact, String version, String commit, String digest) {
+        this(group, artifact, version, commit, digest, "");
+    }
 
     /** The prefix every module stamp shares inside a jar. */
     public static final String PREFIX = "META-INF/vexelray/build/";
@@ -48,7 +60,8 @@ public record Stamp(String group, String artifact, String version, String commit
     /** As the lines of a properties file. */
     public String text() {
         return "group=" + group + "\nartifact=" + artifact + "\nversion=" + version + "\ncommit=" + commit
-                + "\ndirty=" + dirty() + "\ndigest=" + digest + "\nsource=" + source() + "\n";
+                + "\ndirty=" + dirty() + "\ndigest=" + digest + "\nsource=" + source() + "\n"
+                + (issues.isEmpty() ? "" : "issues=" + issues + "\n");
     }
 
     /** Read a stamp written by {@link #text()}; {@code null} when it is not one. */
@@ -61,6 +74,6 @@ public record Stamp(String group, String artifact, String version, String commit
             return null;
         }
         return new Stamp(group, artifact, p.getProperty("version", "-"), p.getProperty("commit", Source.UNKNOWN),
-                p.getProperty("digest", ""));
+                p.getProperty("digest", ""), p.getProperty("issues", ""));
     }
 }

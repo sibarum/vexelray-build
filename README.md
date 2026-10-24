@@ -38,8 +38,8 @@ The goal `identify` runs at `initialize`, before anything compiles, and writes t
 
 | File | What it holds |
 | --- | --- |
-| `META-INF/vexelray/build/<groupId>/<artifactId>.properties` | **The stamp**: `group`, `artifact`, `version`, `commit`, `dirty`, `digest`, `source`. One per module, so jars never collide. |
-| `META-INF/vexelray/build.properties` | **The bill**: the stamp, then `app.id` (see below), then `installer.id` and `installer.replaces` when there is an `installer.json`, then `stack.count` and `stack.<n>=group:artifact:version@source` for every stamped part on the runtime class path. |
+| `META-INF/vexelray/build/<groupId>/<artifactId>.properties` | **The stamp**: `group`, `artifact`, `version`, `commit`, `dirty`, `digest`, `source`, and `issues` when the pom has an `<issueManagement><url>` (inherited, like the rest of the model). One per module, so jars never collide. |
+| `META-INF/vexelray/build.properties` | **The bill**: the stamp, then `app.id` (see below), `name`, `built` and `notices` (see *What an About window reads*), then `installer.id` and `installer.replaces` when there is an `installer.json`, then `stack.count` and `stack.<n>=group:artifact:version@source` for every stamped part on the runtime class path, each followed by `stack.<n>.issues` when that part names a tracker. |
 
 It also sets `vexelray.build.source` and `vexelray.build.commit` for the rest of the build. A module whose packaging
 is `pom` gets neither file. Outside a git checkout, or without git on the `PATH`, the commit is `unknown`.
@@ -67,6 +67,18 @@ reads that `id` and the ids it `replaces` into the bill, and the framework's cod
 `@VexelApp` name differs, or when an id the installer replaces is missing from `@VexelApp(formerNames)`. A former name
 the installer does not replace is fine: only the settings directory was renamed. Applications not on the framework
 skip the check.
+
+### What an About window reads
+
+The framework's About window (`vexelray-framework`, opened from the mark at the left of the title bar) shows the bill,
+so everything on it is a fact of the build rather than a string an application keeps up to date by hand:
+
+| Key | What it is |
+| --- | --- |
+| `name` | the application's proper name: the `name` in its `installer.json` (the name on its shortcuts), else the pom's `<name>`, else the artifactId |
+| `built` | when this identity was first built into this output directory (a `clean` starts over), an ISO-8601 instant in UTC. Not part of the identity: a rebuild of the same source keeps the time already in the bill, so the bill on disk does not change and the compiler can still skip a module whose identity did not move |
+| `notices` | where the third-party notices of this build are read: the release asset `https://github.com/<releasesRepo>/releases/download/<tagFormat>/THIRD-PARTY-NOTICES.txt`, when the module has a `THIRD-PARTY-NOTICES.txt` beside its pom and an `installer.json` naming its releases. `-Dvexelray.notices.url` (or the property in the pom) names another. Absent when neither |
+| `stack.<n>.issues` | where that part's problems are reported, from its pom's `<issueManagement>`. The framework's is the About window's *Report a problem* |
 
 ## Using it
 
@@ -117,4 +129,5 @@ New repositories copy the profile from any root pom; `vexelray-framework`'s temp
 
 - **Java 21, not 25.** `maven-plugin-plugin` 3.15 reads the compiled classes to build the plugin descriptor, and its
   ASM does not know class version 69 yet. `vexelray-msdf-maven-plugin` does the same.
-- **Build time is not part of the identity.** Two builds of the same source are the same build.
+- **Build time is not part of the identity.** Two builds of the same source are the same build, which is why `built`
+  is the time the identity was first built and not the time of the last `mvn` run.

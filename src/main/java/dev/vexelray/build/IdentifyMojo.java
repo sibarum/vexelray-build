@@ -13,6 +13,8 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -54,6 +56,13 @@ public final class IdentifyMojo extends AbstractMojo {
     @Parameter(property = "vexelray.app.id")
     private String appId;
 
+    /**
+     * Where the application's third-party notices are read, for one not published through an {@code installer.json}
+     * release. Unset, the release's own {@code THIRD-PARTY-NOTICES.txt} asset when there is one.
+     */
+    @Parameter(property = "vexelray.notices.url")
+    private String noticesUrl;
+
     /** Skip this module. */
     @Parameter(property = "vexelray.build.skip", defaultValue = "false")
     private boolean skip;
@@ -70,7 +79,7 @@ public final class IdentifyMojo extends AbstractMojo {
                         + project.getBasedir() + " is not in a git checkout, or git is not on the PATH");
             }
             Stamp self = new Stamp(project.getGroupId(), project.getArtifactId(), project.getVersion(), source[0],
-                    source[1]);
+                    source[1], project.getIssueManagement() == null ? null : project.getIssueManagement().getUrl());
             Path out = Path.of(project.getBuild().getOutputDirectory());
             write(out.resolve(Stamp.resource(self.group(), self.artifact())), self.text());
 
@@ -101,11 +110,14 @@ public final class IdentifyMojo extends AbstractMojo {
                     throw new MojoExecutionException(mismatch);
                 }
             }
-            Bill bill = new Bill(self, id, installer, stack);
             Path billFile = out.resolve(Bill.RESOURCE);
             String before = Files.isRegularFile(billFile) ? Files.readString(billFile, StandardCharsets.UTF_8) : null;
-            write(billFile, bill.text());
-            if (before != null && !before.equals(bill.text())) {
+            Bill bill = new Bill(self, id, name(installer), Instant.now().truncatedTo(ChronoUnit.SECONDS).toString(),
+                    notices(installer), installer, stack).sameBuildAs(before);
+            if (!bill.text().equals(before)) {
+                write(billFile, bill.text());
+                // A first bill too: classes compiled before there was one were generated without it. On a clean build
+                // there is no incremental state, and this does nothing.
                 forgetIncrementalState();
             }
 
@@ -117,6 +129,34 @@ public final class IdentifyMojo extends AbstractMojo {
             throw new MojoExecutionException("could not work out the build identity of " + project.getArtifactId()
                     + ": " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * The application's proper name: what its {@code installer.json} calls it, since that is the name on its shortcuts;
+     * else the pom's {@code <name>}; else the artifactId.
+     */
+    private String name(InstallerJson installer) {
+        if (installer != null && installer.name() != null && !installer.name().isBlank()) {
+            return installer.name().trim();
+        }
+        String pom = project.getName();
+        return pom == null || pom.isBlank() ? project.getArtifactId() : pom.trim();
+    }
+
+    /**
+     * Where this build's third-party notices are read: {@link #noticesUrl} when the pom sets it, else the release asset
+     * the installer's {@code releasesRepo} and {@code tagFormat} name, when the module has a {@code THIRD-PARTY-NOTICES.txt}
+     * to publish there. Empty when neither.
+     */
+    private String notices(InstallerJson installer) {
+        if (noticesUrl != null && !noticesUrl.isBlank()) {
+            return noticesUrl.trim();
+        }
+        if (installer == null || !Files.isRegularFile(project.getBasedir().toPath().resolve(InstallerJson.NOTICES))) {
+            return "";
+        }
+        String url = installer.noticesUrl(project.getVersion());
+        return url == null ? "" : url;
     }
 
     /**

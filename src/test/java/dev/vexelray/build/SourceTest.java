@@ -12,7 +12,9 @@ import java.util.jar.JarOutputStream;
 import java.util.zip.ZipEntry;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -116,9 +118,56 @@ class SourceTest {
         Files.writeString(f, b.text());
         assertEquals(List.of(a), Bill.stampsIn(jar));
         assertEquals(List.of(b), Bill.stampsIn(classes));
-        Bill bill = new Bill(new Stamp("dev.app", "app", "0.1", "c0", ""), "dev.app.app", null, List.of(a, b));
+        Bill bill = new Bill(new Stamp("dev.app", "app", "0.1", "c0", ""), "dev.app.app", "App",
+                "2026-10-24T10:00:00Z", "", null, List.of(a, b));
         String text = bill.text();
-        assertTrue(text.contains("app.id=dev.app.app\nstack.count=2\nstack.1=dev.a:alpha:2@c2+dirty.d2d2d2d2d2d2\nstack.2=dev.b:zeta:1@c1\n"),
-                text);
+        assertTrue(text.contains("app.id=dev.app.app\nname=App\nbuilt=2026-10-24T10:00:00Z\nstack.count=2\n"
+                + "stack.1=dev.a:alpha:2@c2+dirty.d2d2d2d2d2d2\nstack.2=dev.b:zeta:1@c1\n"), text);
+    }
+
+    @Test
+    void aStampSaysWhereItsIssuesGoAndTheBillCarriesIt() throws Exception {
+        Stamp framework = new Stamp("dev.vexelray.framework", "vexelray-framework-shell", "0.1", "c1", "",
+                " https://github.com/sibarum/vexelray-framework/issues ");
+        assertEquals("https://github.com/sibarum/vexelray-framework/issues", framework.issues());
+        assertEquals(framework, Stamp.read(new ByteArrayInputStream(framework.text().getBytes(StandardCharsets.UTF_8))));
+        assertEquals(framework.line(), new Stamp("dev.vexelray.framework", "vexelray-framework-shell", "0.1", "c1", "").line(),
+                "where a module's issues go is not part of what it was built from");
+        Stamp none = new Stamp("dev.a", "alpha", "2", "c2", "");
+        assertFalse(none.text().contains("issues="), "a module that names no tracker writes no line for one");
+
+        String text = new Bill(new Stamp("dev.app", "app", "0.1", "c0", ""), "dev.app.app", "App", "t", "", null,
+                List.of(framework, none)).text();
+        assertTrue(text.contains("stack.1=dev.a:alpha:2@c2\nstack.2=dev.vexelray.framework:vexelray-framework-shell:0.1@c1\n"
+                + "stack.2.issues=https://github.com/sibarum/vexelray-framework/issues\n"), text);
+    }
+
+    @Test
+    void aRebuildOfTheSameSourceKeepsTheTimeItWasFirstBuilt() {
+        Stamp self = new Stamp("dev.app", "app", "0.1", "c0", "");
+        Bill first = new Bill(self, "dev.app.app", "App", "2026-10-24T10:00:00Z", "", null, List.of());
+        Bill again = new Bill(self, "dev.app.app", "App", "2026-10-24T11:30:00Z", "", null, List.of());
+        assertEquals(first.text(), again.sameBuildAs(first.text()).text(), "the same build, so the same bill on disk");
+        assertEquals(again, again.sameBuildAs(null), "nothing built before: now");
+
+        Bill edited = new Bill(new Stamp("dev.app", "app", "0.1", "c0", "0a1b2c3d4e5f"), "dev.app.app", "App",
+                "2026-10-24T11:30:00Z", "", null, List.of());
+        assertTrue(edited.sameBuildAs(first.text()).text().contains("built=2026-10-24T11:30:00Z\n"),
+                "another source is another build, built now");
+    }
+
+    @Test
+    void theNoticesAreTheReleaseAssetTheInstallerNames() {
+        InstallerJson pix = InstallerJson.parse("""
+                { "id": "pix", "name": "Pix", "releasesRepo": "sibarum/vexelray-dist", "tagFormat": "pix-v{version}" }
+                """);
+        assertEquals("Pix", pix.name());
+        assertEquals("https://github.com/sibarum/vexelray-dist/releases/download/pix-v0.1.2/THIRD-PARTY-NOTICES.txt",
+                pix.noticesUrl("0.1.2"));
+        assertNull(InstallerJson.parse("{ \"id\": \"pix\" }").noticesUrl("0.1.2"), "no release, nowhere to read them");
+        String text = new Bill(new Stamp("dev.sibarum", "pix", "0.1.2", "c0", ""), "dev.sibarum.pix", "Pix", "t",
+                pix.noticesUrl("0.1.2"), pix, List.of()).text();
+        assertTrue(text.contains("\nnotices=https://github.com/sibarum/vexelray-dist/releases/download/pix-v0.1.2/"
+                + "THIRD-PARTY-NOTICES.txt\ninstaller.id=pix\n"), text);
     }
 }

@@ -15,8 +15,28 @@ import java.util.Map;
  * @param replaces the {@code id} of every {@code replaces} entry
  * @param appIds   every binary's {@code appId}, Windows and Linux
  * @param linux    whether there is a {@code linux} section
+ * @param name     the application's proper name, as its shortcuts and its About window show it, or {@code null}
+ * @param releases the {@code releasesRepo} its binaries are published to ({@code owner/name}), or {@code null}
+ * @param tag      the {@code tagFormat} of a release there, {@code {version}} standing for the version, or
+ *                 {@code null}
  */
-record InstallerJson(String id, List<String> replaces, List<String> appIds, boolean linux) {
+record InstallerJson(String id, List<String> replaces, List<String> appIds, boolean linux, String name,
+                     String releases, String tag) {
+
+    /** The file the release publishes beside the binaries, listing what third-party software is in them. */
+    static final String NOTICES = "THIRD-PARTY-NOTICES.txt";
+
+    /**
+     * Where a release of {@code version} publishes its {@link #NOTICES}: a GitHub release asset, named by the
+     * {@code releasesRepo} and the {@code tagFormat}. {@code null} when either is missing.
+     */
+    String noticesUrl(String version) {
+        if (releases == null || releases.isBlank() || tag == null || tag.isBlank()) {
+            return null;
+        }
+        return "https://github.com/" + releases.trim() + "/releases/download/" + tag.trim().replace("{version}", version)
+                + "/" + NOTICES;
+    }
 
     static InstallerJson parse(String json) {
         Object top = new Reader(json).document();
@@ -42,7 +62,9 @@ record InstallerJson(String id, List<String> replaces, List<String> appIds, bool
             }
         }
         return new InstallerJson(config.get("id") instanceof String s ? s : null, replaces, appIds,
-                config.get("linux") instanceof Map<?, ?>);
+                config.get("linux") instanceof Map<?, ?>, config.get("name") instanceof String n ? n : null,
+                config.get("releasesRepo") instanceof String r ? r : null,
+                config.get("tagFormat") instanceof String t ? t : null);
     }
 
     private static final class Reader {
