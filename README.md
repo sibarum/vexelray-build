@@ -39,11 +39,34 @@ The goal `identify` runs at `initialize`, before anything compiles, and writes t
 | File | What it holds |
 | --- | --- |
 | `META-INF/vexelray/build/<groupId>/<artifactId>.properties` | **The stamp**: `group`, `artifact`, `version`, `commit`, `dirty`, `digest`, `source`. One per module, so jars never collide. |
-| `META-INF/vexelray/build.properties` | **The bill**: the stamp, then `stack.count` and `stack.<n>=group:artifact:version@source` for every stamped part on the runtime class path. |
+| `META-INF/vexelray/build.properties` | **The bill**: the stamp, then `app.id` (see below), then `installer.id` and `installer.replaces` when there is an `installer.json`, then `stack.count` and `stack.<n>=group:artifact:version@source` for every stamped part on the runtime class path. |
 
 It also sets `vexelray.build.source` and `vexelray.build.commit` for the rest of the build. A module whose packaging
 is `pom` gets neither file. Outside a git checkout, or without git on the `PATH`, the commit is `unknown`.
 `-Dvexelray.build.strict=true` fails the build instead, and `-Dvexelray.build.skip=true` skips a module.
+
+### The application id
+
+`app.id` is the name an application's windows go by on the desktop: `WM_CLASS` on X11, the `app_id` on Wayland. A
+taskbar or dock matches it against the name of the application's desktop entry to show the right icon, so the installer
+names the desktop entry after it too. It defaults to `<groupId>.<artifactId>` (`dev.sibarum.pix`). Set the property
+`vexelray.app.id` in the application's pom to override it, for coordinates that are awkward as a name, or to keep the
+name an application was first installed under after its coordinates change. Changing it renames the installed desktop
+entry, and a dock forgets any pin on the old one.
+
+It has to be a desktop entry name: dot-separated parts of letters, digits, `_` and `-`, none starting with a digit, at
+least two parts. When an `installer.json` sits beside the pom, `identify` checks that its `appId` is the same, and that a
+config with a `linux` section declares one, and fails the build if not. That keeps the binary and the installer from
+drifting apart, since the installer never sees the pom.
+
+### The installer's id and the application's name
+
+An application finds its own install record (for its update check) and its settings directory by its `@VexelApp`
+name, and the installer records the install under the `id` in `installer.json`, so the two must be the same. `identify`
+reads that `id` and the ids it `replaces` into the bill, and the framework's code generator fails the compile when the
+`@VexelApp` name differs, or when an id the installer replaces is missing from `@VexelApp(formerNames)`. A former name
+the installer does not replace is fine: only the settings directory was renamed. Applications not on the framework
+skip the check.
 
 ## Using it
 

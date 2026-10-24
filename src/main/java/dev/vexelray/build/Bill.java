@@ -28,15 +28,21 @@ import java.util.zip.ZipFile;
  * dirty=false
  * digest=
  * source=ef816d9...
+ * app.id=dev.sibarum.vexelray-inspector
+ * installer.id=inspector
+ * installer.replaces=
  * stack.count=2
  * stack.1=dev.vexelray.gui:vexelray-gui-core:0.1.1-SNAPSHOT@1e057d6...
  * stack.2=sibarum.atchung:atchung-probe:1.1-SNAPSHOT@943b128...+dirty.0a1b2c3d4e5f
  * </pre>
  *
  * @param self  this build's own stamp
- * @param stack the stamps found on the class path, ordered by group and artifact
+ * @param appId     the name the application's windows go by on the desktop ({@link AppId})
+ * @param installer its {@code installer.json}, or {@code null} for none: the framework's code generator checks that
+ *                  its {@code id} is the application's name, and its {@code replaces} the names it had before
+ * @param stack     the stamps found on the class path, ordered by group and artifact
  */
-public record Bill(Stamp self, List<Stamp> stack) {
+public record Bill(Stamp self, String appId, InstallerJson installer, List<Stamp> stack) {
 
     /** Where the bill lives in the build's output, and so in its jar. */
     public static final String RESOURCE = "META-INF/vexelray/build.properties";
@@ -47,7 +53,12 @@ public record Bill(Stamp self, List<Stamp> stack) {
 
     /** As the lines of a properties file. */
     public String text() {
-        StringBuilder sb = new StringBuilder(self.text()).append("stack.count=").append(stack.size()).append('\n');
+        StringBuilder sb = new StringBuilder(self.text()).append("app.id=").append(appId).append('\n');
+        if (installer != null) {
+            sb.append("installer.id=").append(installer.id() == null ? "" : installer.id()).append('\n')
+                    .append("installer.replaces=").append(String.join(",", installer.replaces())).append('\n');
+        }
+        sb.append("stack.count=").append(stack.size()).append('\n');
         for (int i = 0; i < stack.size(); i++) {
             sb.append("stack.").append(i + 1).append('=').append(stack.get(i).line()).append('\n');
         }

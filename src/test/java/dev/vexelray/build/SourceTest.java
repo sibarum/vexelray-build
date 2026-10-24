@@ -116,9 +116,9 @@ class SourceTest {
         Files.writeString(f, b.text());
         assertEquals(List.of(a), Bill.stampsIn(jar));
         assertEquals(List.of(b), Bill.stampsIn(classes));
-        Bill bill = new Bill(new Stamp("dev.app", "app", "0.1", "c0", ""), List.of(a, b));
+        Bill bill = new Bill(new Stamp("dev.app", "app", "0.1", "c0", ""), "dev.app.app", null, List.of(a, b));
         String text = bill.text();
-        assertTrue(text.contains("stack.count=2\nstack.1=dev.a:alpha:2@c2+dirty.d2d2d2d2d2d2\nstack.2=dev.b:zeta:1@c1\n"),
+        assertTrue(text.contains("app.id=dev.app.app\nstack.count=2\nstack.1=dev.a:alpha:2@c2+dirty.d2d2d2d2d2d2\nstack.2=dev.b:zeta:1@c1\n"),
                 text);
     }
 }

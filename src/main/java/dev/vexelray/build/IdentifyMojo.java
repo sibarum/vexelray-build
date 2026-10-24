@@ -26,7 +26,8 @@ import java.util.Set;
  *       coordinates, commit, and the digest of any uncommitted change ({@link Source}). It goes into the jar, so
  *       whatever is built on this module later finds it.</li>
  *   <li><b>The bill</b>, {@code META-INF/vexelray/build.properties} ({@link Bill}): the stamp, plus the stamp of every
- *       part on the runtime class path that has one. An application's code generator reads it while compiling.</li>
+ *       part on the runtime class path that has one, and the application id ({@link AppId}). An application's code
+ *       generator reads it while compiling.</li>
  *   <li><b>Properties</b> for the rest of the build: {@code vexelray.build.source} and {@code vexelray.build.commit}.</li>
  * </ul>
  *
@@ -44,6 +45,14 @@ public final class IdentifyMojo extends AbstractMojo {
     /** Fail when the source cannot be known (no git, or not a checkout), rather than stamping {@code unknown}. */
     @Parameter(property = "vexelray.build.strict", defaultValue = "false")
     private boolean strict;
+
+    /**
+     * The name the application's windows go by on the desktop, and its desktop entry's ({@link AppId}). Defaults to
+     * {@code <groupId>.<artifactId>}; set it to keep a name when the coordinates change. An {@code installer.json}
+     * beside the pom must declare the same one as its {@code appId}, which the build checks.
+     */
+    @Parameter(property = "vexelray.app.id")
+    private String appId;
 
     /** Skip this module. */
     @Parameter(property = "vexelray.build.skip", defaultValue = "false")
@@ -74,7 +83,25 @@ public final class IdentifyMojo extends AbstractMojo {
                     }
                 }
             }
-            Bill bill = new Bill(self, stack);
+            String id = AppId.resolve(appId, self.group(), self.artifact());
+            String invalid = AppId.invalid(id);
+            if (invalid != null) {
+                throw new MojoExecutionException(invalid);
+            }
+            Path installerFile = project.getBasedir().toPath().resolve(AppId.INSTALLER_CONFIG);
+            InstallerJson installer = null;
+            if (Files.isRegularFile(installerFile)) {
+                try {
+                    installer = InstallerJson.parse(Files.readString(installerFile, StandardCharsets.UTF_8));
+                } catch (IllegalArgumentException e) {
+                    throw new MojoExecutionException(installerFile + " is not valid JSON: " + e.getMessage());
+                }
+                String mismatch = AppId.mismatch(installer, id);
+                if (mismatch != null) {
+                    throw new MojoExecutionException(mismatch);
+                }
+            }
+            Bill bill = new Bill(self, id, installer, stack);
             Path billFile = out.resolve(Bill.RESOURCE);
             String before = Files.isRegularFile(billFile) ? Files.readString(billFile, StandardCharsets.UTF_8) : null;
             write(billFile, bill.text());
