@@ -63,6 +63,14 @@ public final class IdentifyMojo extends AbstractMojo {
     @Parameter(property = "vexelray.notices.url")
     private String noticesUrl;
 
+    /**
+     * The application's {@code installer.json}: beside the pom by default. An application that is one module of a
+     * repository whose root holds its installer configuration names that one, and its {@code THIRD-PARTY-NOTICES.txt}
+     * is then looked for beside it, where the installer publishes it from.
+     */
+    @Parameter(property = "vexelray.installer.config", defaultValue = "${project.basedir}/" + AppId.INSTALLER_CONFIG)
+    private java.io.File installerConfig;
+
     /** Skip this module. */
     @Parameter(property = "vexelray.build.skip", defaultValue = "false")
     private boolean skip;
@@ -97,7 +105,7 @@ public final class IdentifyMojo extends AbstractMojo {
             if (invalid != null) {
                 throw new MojoExecutionException(invalid);
             }
-            Path installerFile = project.getBasedir().toPath().resolve(AppId.INSTALLER_CONFIG);
+            Path installerFile = installerConfig.toPath();
             InstallerJson installer = null;
             if (Files.isRegularFile(installerFile)) {
                 try {
@@ -145,14 +153,15 @@ public final class IdentifyMojo extends AbstractMojo {
 
     /**
      * Where this build's third-party notices are read: {@link #noticesUrl} when the pom sets it, else the release asset
-     * the installer's {@code releasesRepo} and {@code tagFormat} name, when the module has a {@code THIRD-PARTY-NOTICES.txt}
-     * to publish there. Empty when neither.
+     * the installer's {@code releasesRepo} and {@code tagFormat} name, when there is a {@code THIRD-PARTY-NOTICES.txt}
+     * beside the {@link #installerConfig} to publish there. Empty when neither.
      */
     private String notices(InstallerJson installer) {
         if (noticesUrl != null && !noticesUrl.isBlank()) {
             return noticesUrl.trim();
         }
-        if (installer == null || !Files.isRegularFile(project.getBasedir().toPath().resolve(InstallerJson.NOTICES))) {
+        if (installer == null
+                || !Files.isRegularFile(installerConfig.toPath().resolveSibling(InstallerJson.NOTICES))) {
             return "";
         }
         String url = installer.noticesUrl(project.getVersion());

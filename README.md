@@ -102,6 +102,19 @@ In a repo's parent pom, or an application's pom:
 The plugin is versioned with the rest of the stack: `vexelray-dist/release.py` builds it first and moves it, and every
 pom that names it, to each release and next snapshot along with the other repositories.
 
+An application that is one module of a repository, with its `installer.json` and `THIRD-PARTY-NOTICES.txt` at the
+repository's root rather than beside its own pom, names that `installer.json` in the execution, and the notices are then
+looked for beside it (`-Dvexelray.installer.config` does the same from the command line):
+
+```xml
+<configuration>
+    <installerConfig>${project.basedir}/../installer.json</installerConfig>
+</configuration>
+```
+
+Without it, `identify` sees no installer: the About window falls back to the pom's `<name>` and has no notices to open,
+and the check that the `@VexelApp` name is the installer's id never runs.
+
 An application on `vexelray-framework` needs nothing more. The framework's code generator reads the bill while the
 application compiles and bakes it into the generated wiring, so there is nothing to read at run time, and nothing a
 native image has to be told about. The automation socket then advertises the build in the discovery file and in
